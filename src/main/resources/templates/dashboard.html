@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinVault — Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+</head>
+<body class="app-body">
+
+<!-- Navbar -->
+<nav th:replace="~{fragments/navbar :: navbar}"></nav>
+
+<div class="container-fluid py-4">
+    <div class="row g-4">
+
+        <!-- Account Overview Cards -->
+        <div class="col-12">
+            <div class="row g-3">
+                <!-- Balance Card -->
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="bi bi-wallet2"></i></div>
+                        <div class="stat-body">
+                            <div class="stat-label">Available Balance</div>
+                            <div class="stat-value" th:text="'$' + ${#numbers.formatDecimal(user.balance, 1, 'COMMA', 2, 'POINT')}">$0.00</div>
+                            <div class="stat-sub text-success"><i class="bi bi-arrow-up-short"></i> +2.4% this month</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Account Number -->
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <div class="stat-icon gold"><i class="bi bi-credit-card-2-front"></i></div>
+                        <div class="stat-body">
+                            <div class="stat-label">Account Number</div>
+                            <div class="stat-value" th:text="${user.accountNumber}">ACC-00000</div>
+                            <div class="stat-sub text-muted">Primary Checking</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Profile Quick Info -->
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <div class="stat-icon blue"><i class="bi bi-person-circle"></i></div>
+                        <div class="stat-body">
+                            <div class="stat-label">Account Holder</div>
+                            <div class="stat-value fs-5" th:text="${user.fullName}">Name</div>
+                            <div class="stat-sub">
+                                <span class="badge" th:classappend="${user.role == 'ADMIN'} ? 'bg-danger' : 'bg-primary'"
+                                      th:text="${user.role}">USER</span>
+                                &nbsp;
+                                <a th:href="@{/profile/{id}(id=${user.id})}" class="text-gold small text-decoration-none">
+                                    View Profile (ID: <span th:text="${user.id}"></span>)
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Transactions -->
+        <div class="col-lg-8">
+            <div class="app-card">
+                <div class="app-card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-0"><i class="bi bi-arrow-left-right text-gold me-2"></i>Recent Transactions</h5>
+                        <p class="text-muted small mb-0">Last 10 transactions on your account</p>
+                    </div>
+                    <a href="/search" class="btn btn-sm btn-outline-gold">
+                        <i class="bi bi-search me-1"></i>Search
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover mb-0">
+                            <thead>
+                            <tr>
+                                <th class="ps-3">Description</th>
+                                <th>Type</th>
+                                <th>Date</th>
+                                <th class="text-end pe-3">Amount</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="tx : ${transactions}">
+                                <td class="ps-3">
+                                    <span class="tx-desc" th:text="${tx.description}"></span>
+                                </td>
+                                <td>
+                                    <span class="badge"
+                                          th:classappend="${tx.transactionType == 'CREDIT'} ? 'bg-success' : 'bg-danger'"
+                                          th:text="${tx.transactionType}"></span>
+                                </td>
+                                <td class="text-muted small"
+                                    th:text="${#temporals.format(tx.createdAt, 'MMM dd, yyyy')}"></td>
+                                <td class="text-end pe-3 fw-bold"
+                                    th:classappend="${tx.transactionType == 'CREDIT'} ? 'text-success' : 'text-danger'"
+                                    th:text="${(tx.transactionType == 'CREDIT' ? '+' : '') + '$' + #numbers.formatDecimal(tx.amount.abs(), 1, 'COMMA', 2, 'POINT')}">
+                                </td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(transactions)}">
+                                <td colspan="4" class="text-center text-muted py-4">No transactions found</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Quick Actions -->
+            <div class="app-card mb-3">
+                <div class="app-card-header">
+                    <h5 class="mb-0"><i class="bi bi-lightning-charge text-gold me-2"></i>Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="/search" class="btn btn-outline-secondary text-start">
+                            <i class="bi bi-search me-2 text-gold"></i>Search Transactions
+                        </a>
+                        <a href="/documents" class="btn btn-outline-secondary text-start">
+                            <i class="bi bi-file-earmark-text me-2 text-gold"></i>Document Manager
+                        </a>
+                        <a href="/chat" class="btn btn-outline-secondary text-start">
+                            <i class="bi bi-robot me-2 text-gold"></i>AI Financial Assistant
+                        </a>
+                        <a th:href="@{/profile/{id}(id=${user.id})}" class="btn btn-outline-secondary text-start">
+                            <i class="bi bi-person-gear me-2 text-gold"></i>Edit Profile
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security Notice (Vulnerability Hints) -->
+            <div class="app-card border-warning">
+                <div class="app-card-header border-warning">
+                    <h5 class="mb-0 text-warning"><i class="bi bi-shield-exclamation me-2"></i>Security Lab</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">This app contains 8 intentional vulnerabilities:</p>
+                    <ul class="list-unstyled mb-0">
+                        <li class="vuln-item"><a href="/auth/forgot-password" class="text-decoration-none"><span class="vuln-num">1</span> SQL Injection — Forgot Password</a></li>
+                        <li class="vuln-item"><a href="/search" class="text-decoration-none"><span class="vuln-num">2</span> XSS — Transaction Search</a></li>
+                        <li class="vuln-item"><a th:href="@{/profile/{id}(id=${user.id})}" class="text-decoration-none"><span class="vuln-num">3</span> IDOR — Profile / Password</a></li>
+                        <li class="vuln-item"><a href="/documents" class="text-decoration-none"><span class="vuln-num">4</span> SSRF — Document Fetch</a></li>
+                        <li class="vuln-item"><a href="/documents" class="text-decoration-none"><span class="vuln-num">5</span> XXE — XML Upload</a></li>
+                        <li class="vuln-item"><a href="/documents" class="text-decoration-none"><span class="vuln-num">6</span> Insecure Deserialization</a></li>
+                        <li class="vuln-item"><a href="/admin" class="text-decoration-none"><span class="vuln-num">7</span> JWT Forgery — Admin Panel</a></li>
+                        <li class="vuln-item"><a href="/chat" class="text-decoration-none"><span class="vuln-num">8</span> Prompt Injection — AI Chat</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/main.js"></script>
+</body>
+</html>

