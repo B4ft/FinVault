@@ -11,12 +11,13 @@
 ```bash
 # Option 1: Docker Compose (recommended)
 cd /Users/jcraft/finvault
-docker compose up --build
+#make sure that docker is already running!
+docker compose up --build 
 
 # Option 2: Maven directly (requires Java 17)
 mvn spring-boot:run
 
-# Access at: http://localhost:8080
+# Access at: http://localhost:8443
 ```
 
 ### Demo Credentials
