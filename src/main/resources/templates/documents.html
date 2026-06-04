@@ -61,7 +61,7 @@
                                 <label class="form-label text-light">Document URL</label>
                                 <input type="text" class="form-control bg-dark text-light border-secondary"
                                        id="ssrfUrl"
-                                       value="http://localhost:8080/internal/admin-data"
+                                       value="http://localhost:8443/internal/admin-data"
                                        placeholder="https://example.com/document.pdf">
                                 <div class="form-text text-warning">
                                     <i class="bi bi-exclamation-triangle"></i>
@@ -91,12 +91,12 @@
                         <div class="card-body">
                             <div class="payload-item" onclick="useSSRF(this)">
                                 <div class="payload-label text-danger">Internal Admin API</div>
-                                <code>http://localhost:8080/internal/admin-data</code>
+                                <code>http://localhost:8443/internal/admin-data</code>
                                 <p class="text-muted small mb-0 mt-1">Returns all credentials, DB passwords, user data</p>
                             </div>
                             <div class="payload-item" onclick="useSSRF(this)">
                                 <div class="payload-label">H2 Console</div>
-                                <code>http://localhost:8080/h2-console</code>
+                                <code>http://localhost:8443/h2-console</code>
                             </div>
                             <div class="payload-item" onclick="useSSRF(this)">
                                 <div class="payload-label">AWS Metadata</div>
@@ -112,7 +112,7 @@
                             </div>
                             <div class="payload-item" onclick="useSSRF(this)">
                                 <div class="payload-label">Localhost scan</div>
-                                <code>http://127.0.0.1:8080/internal/admin-data</code>
+                                <code>http://127.0.0.1:8443/internal/admin-data</code>
                             </div>
                         </div>
                     </div>

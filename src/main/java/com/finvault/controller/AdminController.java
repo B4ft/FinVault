@@ -70,7 +70,7 @@ public class AdminController {
      * However, SSRF via /documents/fetch allows an external user to reach it
      * by routing requests through the server itself.
      *
-     * Exploit: POST /documents/fetch with url=http://localhost:8080/internal/admin-data
+     * Exploit: POST /documents/fetch with url=http://localhost:8443/internal/admin-data
      */
     @GetMapping("/internal/admin-data")
     @ResponseBody
@@ -92,13 +92,13 @@ public class AdminController {
         secrets.put("awsAccessKeyId", "AKIAIOSFODNN7EXAMPLE");
         secrets.put("awsSecretKey", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY");
         secrets.put("jwtSecret", "secret");
-        secrets.put("h2ConsoleUrl", "http://localhost:8080/h2-console");
+        secrets.put("h2ConsoleUrl", "http://localhost:8443/h2-console");
 
         Map<String, Object> systemInfo = new HashMap<>();
         systemInfo.put("javaVersion", System.getProperty("java.version"));
         systemInfo.put("osName", System.getProperty("os.name"));
         systemInfo.put("userHome", System.getProperty("user.home"));
-        systemInfo.put("serverPort", "8080");
+        systemInfo.put("serverPort", "8443");
 
         List<User> allUsers = userService.findAll();
         Map<String, Object> userSummary = new HashMap<>();

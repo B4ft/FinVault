@@ -55,7 +55,7 @@ public class DocumentController {
      * Fetches any URL provided by the user with no validation.
      *
      * Demo exploit:
-     *   URL: http://localhost:8080/internal/admin-data
+     *   URL: http://localhost:8443/internal/admin-data
      *   URL: http://169.254.169.254/latest/meta-data/ (AWS metadata)
      *   URL: file:///etc/passwd
      *
