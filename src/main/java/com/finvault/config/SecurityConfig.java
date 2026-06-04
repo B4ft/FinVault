@@ -10,6 +10,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 /**
  * INTENTIONALLY WEAK Security Configuration for educational purposes.
@@ -41,14 +42,19 @@ public class SecurityConfig {
             // Authorization rules - intentionally permissive
             .authorizeHttpRequests(auth -> auth
                 // Public auth pages
-                .requestMatchers("/auth/**").permitAll()
+                .requestMatchers(AntPathRequestMatcher.antMatcher("/auth/**")).permitAll()
                 // Static resources
-                .requestMatchers("/static/**", "/css/**", "/js/**", "/webjars/**").permitAll()
+                .requestMatchers(
+                    AntPathRequestMatcher.antMatcher("/static/**"),
+                    AntPathRequestMatcher.antMatcher("/css/**"),
+                    AntPathRequestMatcher.antMatcher("/js/**"),
+                    AntPathRequestMatcher.antMatcher("/webjars/**")
+                ).permitAll()
                 // H2 console
-                .requestMatchers("/h2-console/**").permitAll()
+                .requestMatchers(AntPathRequestMatcher.antMatcher("/h2-console/**")).permitAll()
                 // VULNERABILITY: Internal endpoint accessible without authentication
                 // (relies on network controls only - bypassed via SSRF)
-                .requestMatchers("/internal/**").permitAll()
+                .requestMatchers(AntPathRequestMatcher.antMatcher("/internal/**")).permitAll()
                 // All other requests go through our JWT filter
                 .anyRequest().permitAll()
             )

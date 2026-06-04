@@ -5,12 +5,12 @@ services:
     build: .
     container_name: finvault
     ports:
-      - "8080:8080"
+      - "8443:8443"
     environment:
       - JAVA_OPTS=-Xmx512m
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/auth/login"]
+      test: ["CMD", "curl", "-f", "http://localhost:8443/auth/login"]
       interval: 30s
       timeout: 10s
       retries: 3
